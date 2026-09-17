@@ -1,0 +1,420 @@
+<!--request_form.html-->
+
+{% extends 'base.html' %}
+{% block title %}Request Form{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Hardware Request Form</h1>
+    <p>Type a hardware name to search the catalog. Available stock is shown automatically.</p>
+  </div>
+  <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">Hardware Catalog</a>
+</div>
+
+<section class="panel request-panel">
+  <div class="panel-title">Student / Request Details</div>
+
+  <form method="post" class="form-grid two" id="requestForm" autocomplete="off" data-draft-user="{{ session.get('username', 'guest')|e }}">
+    <label>Full Name
+      <input name="name" value="{{ form.get('name', '') }}" required>
+    </label>
+    <label>Student ID
+      <input name="student_id" value="{{ form.get('student_id', '') }}" required>
+    </label>
+    <label>Professor
+      <input name="professor" value="{{ form.get('professor', '') }}" required>
+    </label>
+    <label>Subject
+      <input name="subject" value="{{ form.get('subject', '') }}" required>
+    </label>
+    <label>Schedule
+      <input name="schedule" value="{{ form.get('schedule', '') }}" placeholder="e.g. MWF 10:00-11:00" required>
+    </label>
+
+    <div class="request-note">
+      <strong>Borrowing rule:</strong> A pending request does not reduce inventory.
+      Stock is deducted only after Admin approval.
+    </div>
+
+    <div class="hardware-section form-actions full-width">
+      <div>
+        <strong>Hardware Items to Borrow</strong>
+        <p class="section-help">Type or search for a component. Select a catalog item to see its current available quantity.</p>
+      </div>
+      <button type="button" class="btn btn-success btn-sm" id="addItemButton">+ Add Hardware Item</button>
+    </div>
+
+    <div id="items" class="items-list full-width"></div>
+
+    <div class="catalog-tip form-actions full-width">
+      <span>💡 <strong>Stock is checked against the current Hardware Catalog.</strong> Quantity must be a whole number and cannot exceed available stock.</span>
+    </div>
+
+    <div class="form-actions full-width">
+      <button type="submit" class="btn btn-primary">Submit Hardware Request</button>
+      <a class="btn btn-secondary" href="{{ url_for('requests') }}">View My Requests</a>
+      <button type="button" class="btn btn-danger" id="deleteAllDraftButton">Delete All</button>
+    </div>
+    <div class="draft-status full-width" id="draftStatus" aria-live="polite">Your form is automatically saved in this browser.</div>
+  </form>
+</section>
+
+<!-- Values are kept outside JavaScript so VS Code does not try to parse Jinja as JavaScript. -->
+<input type="hidden" id="oldNames" value='{{ item_names|default([])|tojson|forceescape }}'>
+<input type="hidden" id="oldCategories" value='{{ categories_selected|default([])|tojson|forceescape }}'>
+<input type="hidden" id="oldQuantities" value='{{ quantities|default([])|tojson|forceescape }}'>
+
+<script>
+(function () {
+  "use strict";
+
+  const catalogUrl = "{{ url_for('hardware_api') }}";
+  const form = document.getElementById("requestForm");
+  const draftStatus = document.getElementById("draftStatus");
+  const deleteAllDraftButton = document.getElementById("deleteAllDraftButton");
+  const draftUser = form.getAttribute("data-draft-user") || "guest";
+  const draftKey = "laboratory_request_form_draft_" + draftUser;
+  let restoringDraft = false;
+
+  function setDraftStatus(message) {
+    if (draftStatus) draftStatus.textContent = message;
+  }
+
+  function getRowsData() {
+    return Array.from(itemsContainer.querySelectorAll(".item-row")).map(function (row) {
+      return {
+        name: row.querySelector(".hardware-name")?.value || "",
+        category: row.querySelector(".hardware-category")?.value || "",
+        quantity: row.querySelector(".hardware-qty")?.value || ""
+      };
+    });
+  }
+
+  function saveDraft() {
+    if (restoringDraft) return;
+    const data = {
+      name: form.elements.name?.value || "",
+      student_id: form.elements.student_id?.value || "",
+      professor: form.elements.professor?.value || "",
+      subject: form.elements.subject?.value || "",
+      schedule: form.elements.schedule?.value || "",
+      items: getRowsData(),
+      savedAt: new Date().toISOString()
+    };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(data));
+      setDraftStatus("Draft saved automatically in this browser.");
+    } catch (error) {
+      setDraftStatus("Automatic draft saving is unavailable in this browser.");
+    }
+  }
+
+  function clearDraft() {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch (error) {
+      // Ignore storage errors.
+    }
+    setDraftStatus("All saved Request Form data has been deleted.");
+  }
+
+  function loadDraft() {
+    let raw = null;
+    try {
+      raw = localStorage.getItem(draftKey);
+    } catch (error) {
+      return false;
+    }
+    if (!raw) return false;
+
+    try {
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== "object") return false;
+      restoringDraft = true;
+      ["name", "student_id", "professor", "subject", "schedule"].forEach(function (field) {
+        if (form.elements[field] && data[field] != null) {
+          form.elements[field].value = data[field];
+        }
+      });
+      itemsContainer.innerHTML = "";
+      const savedItems = Array.isArray(data.items) ? data.items : [];
+      if (savedItems.length) {
+        savedItems.forEach(function (item) {
+          createRow(item.name || "", item.category || "", item.quantity || "");
+        });
+      } else {
+        createRow("", "", "");
+      }
+      restoringDraft = false;
+      setDraftStatus("Your previously saved Request Form data has been restored.");
+      return true;
+    } catch (error) {
+      restoringDraft = false;
+      return false;
+    }
+  }
+
+  const itemsContainer = document.getElementById("items");
+  const addItemButton = document.getElementById("addItemButton");
+  let catalog = [];
+
+  function parseHiddenJson(id) {
+    const element = document.getElementById(id);
+    if (!element || !element.value) return [];
+    try {
+      const parsed = JSON.parse(element.value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  const oldNames = parseHiddenJson("oldNames");
+  const oldCategories = parseHiddenJson("oldCategories");
+  const oldQuantities = parseHiddenJson("oldQuantities");
+
+  function escapeHtml(value) {
+    const text = String(value == null ? "" : value);
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function findItem(name) {
+    const normalized = String(name || "").trim().toLowerCase();
+    return catalog.find(function (item) {
+      return item.item_name.toLowerCase() === normalized;
+    });
+  }
+
+  function createRow(name, category, quantity) {
+    const row = document.createElement("div");
+    row.className = "item-row";
+
+    row.innerHTML = `
+      <div class="hardware-input-col">
+        <label>Hardware Item
+          <input class="hardware-name" name="hardware_item" list="hardwareCatalog"
+                 value="${escapeHtml(name)}"
+                 placeholder="Type or search hardware item..." required autocomplete="off">
+        </label>
+        <small class="search-help">Examples: Arduino, sensor, motor, resistor, LED, breadboard...</small>
+      </div>
+      <div>
+        <label>Category
+          <input class="hardware-category" name="category" value="${escapeHtml(category)}" readonly required>
+        </label>
+      </div>
+      <div>
+        <label>Requested Qty
+          <input class="hardware-qty" name="quantity" type="number" min="1" step="1"
+                 value="${escapeHtml(quantity)}" required>
+        </label>
+        <div class="stock-display neutral">Loading catalog...</div>
+      </div>
+      <button type="button" class="btn btn-danger btn-sm remove-row" title="Remove this item">×</button>
+    `;
+
+    const nameInput = row.querySelector(".hardware-name");
+    const quantityInput = row.querySelector(".hardware-qty");
+    const removeButton = row.querySelector(".remove-row");
+
+    nameInput.addEventListener("input", function () {
+      syncRow(row);
+    });
+    nameInput.addEventListener("change", function () {
+      syncRow(row);
+    });
+    quantityInput.addEventListener("input", function () {
+      validateQuantity(row);
+    });
+    removeButton.addEventListener("click", function () {
+      row.remove();
+      ensureRow();
+      saveDraft();
+    });
+
+    itemsContainer.appendChild(row);
+    syncRow(row);
+  }
+
+  function syncRow(row) {
+    const nameInput = row.querySelector(".hardware-name");
+    const categoryInput = row.querySelector(".hardware-category");
+    const quantityInput = row.querySelector(".hardware-qty");
+    const stockDisplay = row.querySelector(".stock-display");
+    const item = findItem(nameInput.value);
+
+    if (!item) {
+      categoryInput.value = "";
+      quantityInput.removeAttribute("max");
+      stockDisplay.className = "stock-display neutral";
+      stockDisplay.textContent = nameInput.value.trim()
+        ? "Hardware item not found. Select an item from the catalog suggestions."
+        : "Select a hardware item to see available quantity.";
+      nameInput.setCustomValidity(nameInput.value.trim() ? "Please select a hardware item from the catalog." : "");
+      return;
+    }
+
+    categoryInput.value = item.category;
+    quantityInput.max = String(item.quantity);
+    nameInput.setCustomValidity("");
+
+    if (item.quantity > 0) {
+      stockDisplay.className = "stock-display available";
+      stockDisplay.textContent = item.quantity + " unit(s) currently available" + (item.quantity <= 5 ? " — Low Stock" : "");
+    } else {
+      stockDisplay.className = "stock-display unavailable";
+      stockDisplay.textContent = "0 unit(s) currently available — Out of Stock";
+    }
+
+    validateQuantity(row);
+  }
+
+  function validateQuantity(row) {
+    const nameInput = row.querySelector(".hardware-name");
+    const quantityInput = row.querySelector(".hardware-qty");
+    const stockDisplay = row.querySelector(".stock-display");
+    const item = findItem(nameInput.value);
+
+    if (!item) {
+      quantityInput.setCustomValidity("");
+      return;
+    }
+
+    const quantity = Number(quantityInput.value);
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      quantityInput.setCustomValidity("Quantity must be a whole number of at least 1.");
+      return;
+    }
+
+    if (quantity > item.quantity) {
+      quantityInput.setCustomValidity("Only " + item.quantity + " unit(s) of " + item.item_name + " are available.");
+      stockDisplay.className = "stock-display unavailable";
+      stockDisplay.textContent = "Requested quantity exceeds available stock (" + item.quantity + ").";
+      return;
+    }
+
+    quantityInput.setCustomValidity("");
+    stockDisplay.className = item.quantity > 0 ? "stock-display available" : "stock-display unavailable";
+  }
+
+  function ensureRow() {
+    if (!itemsContainer.querySelector(".item-row")) {
+      createRow("", "", "");
+    }
+  }
+
+  function buildDatalist() {
+    let datalist = document.getElementById("hardwareCatalog");
+    if (!datalist) {
+      datalist = document.createElement("datalist");
+      datalist.id = "hardwareCatalog";
+      document.body.appendChild(datalist);
+    }
+    datalist.innerHTML = "";
+
+    catalog.forEach(function (item) {
+      const option = document.createElement("option");
+      option.value = item.item_name;
+      option.label = item.item_name + " — " + item.quantity + " available";
+      datalist.appendChild(option);
+    });
+  }
+
+  async function loadCatalog() {
+    try {
+      const response = await fetch(catalogUrl, {
+        method: "GET",
+        headers: { "Accept": "application/json" },
+        cache: "no-store"
+      });
+
+      if (!response.ok) throw new Error("Catalog request failed");
+
+      const data = await response.json();
+      catalog = Array.isArray(data) ? data : [];
+      buildDatalist();
+
+      const rows = itemsContainer.querySelectorAll(".item-row");
+      rows.forEach(function (row) {
+        syncRow(row);
+      });
+    } catch (error) {
+      catalog = [];
+      itemsContainer.querySelectorAll(".stock-display").forEach(function (display) {
+        display.className = "stock-display unavailable";
+        display.textContent = "Unable to load the Hardware Catalog. Refresh the page and try again.";
+      });
+    }
+  }
+
+  addItemButton.addEventListener("click", function () {
+    createRow("", "", "");
+    saveDraft();
+  });
+
+  deleteAllDraftButton.addEventListener("click", function () {
+    const confirmed = window.confirm("Delete all saved Request Form data? This will clear your current form and cannot be undone.");
+    if (!confirmed) return;
+    form.reset();
+    itemsContainer.innerHTML = "";
+    clearDraft();
+    createRow("", "", "");
+  });
+
+  form.addEventListener("input", function () {
+    saveDraft();
+  });
+
+  form.addEventListener("change", function () {
+    saveDraft();
+  });
+
+  form.addEventListener("submit", function (event) {
+    let valid = true;
+    const rows = itemsContainer.querySelectorAll(".item-row");
+
+    if (!rows.length) {
+      valid = false;
+    }
+
+    rows.forEach(function (row) {
+      const nameInput = row.querySelector(".hardware-name");
+      const quantityInput = row.querySelector(".hardware-qty");
+      const item = findItem(nameInput.value);
+
+      if (!item) {
+        nameInput.setCustomValidity("Please select a hardware item from the catalog.");
+        valid = false;
+      } else {
+        nameInput.setCustomValidity("");
+        validateQuantity(row);
+        if (!quantityInput.checkValidity()) valid = false;
+      }
+    });
+
+    if (!valid) {
+      event.preventDefault();
+      form.reportValidity();
+    }
+  });
+
+  const restored = loadDraft();
+
+  if (!restored) {
+    if (oldNames.length) {
+      oldNames.forEach(function (name, index) {
+        createRow(name, oldCategories[index] || "", oldQuantities[index] || "");
+      });
+    } else {
+      createRow("", "", "");
+    }
+    saveDraft();
+  }
+
+  loadCatalog();
+})();
+</script>
+{% endblock %}
