@@ -1,4 +1,0 @@
-<!--profile.html-->
-
-{% extends 'base.html' %}{% block title %}Profile{% endblock %}
-{% block content %}<div class="page-head"><div><h1>My Profile & Security Management</h1><p>Change your password using the same complexity rules as registration.</p></div></div><section class="panel narrow"><div class="panel-title">Change Password</div><form method="post" class="form-grid"><label>Current Password<input id="current" type="password" name="current_password" required></label><label>New Password<input id="new" type="password" name="new_password" required></label><label>Confirm New Password<input id="confirm" type="password" name="confirm_password" required></label><label class="check"><input type="checkbox" onchange="togglePassword('current',this);togglePassword('new',this);togglePassword('confirm',this)"> Show Passwords</label><button class="btn btn-primary">Update Password</button></form></section>{% endblock %}
