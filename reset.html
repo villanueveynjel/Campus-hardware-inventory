@@ -1,9 +1,0 @@
-<!--reset.html-->
-
-{% extends 'base.html' %}{% block title %}Reset / Unlock{% endblock %}
-{% block content %}<section class="auth-card compact"><h1>Reset / Unlock</h1><p class="subtitle">Submit a new-password request for Admin approval.</p>
-<form method="post" class="form-grid">
-<label>Account Username<input name="username" required></label><label>Registered Email<input type="email" name="email" required></label>
-<label>Desired New Password<input id="reset_password" type="password" name="new_password" required></label><label>Confirm New Password<input id="reset_confirm" type="password" name="confirm_password" required></label>
-<label class="check"><input type="checkbox" onchange="togglePassword('reset_password',this);togglePassword('reset_confirm',this)"> Show Passwords</label>
-<button class="btn btn-primary full">Submit Reset / Unlock Request</button></form><a class="back-link" href="{{ url_for('login') }}">← Back to Login</a></section>{% endblock %}
