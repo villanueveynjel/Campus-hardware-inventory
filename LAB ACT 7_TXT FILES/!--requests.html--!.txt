@@ -1,0 +1,6 @@
+!--requests.html--!
+
+{% extends 'base.html' %}{% block title %}Requests{% endblock %}
+{% block content %}<div class="page-head"><div><h1>{{ 'Borrow Requests & Records' if session.get('role')=='admin' else 'My Borrowed Items & Requests' }}</h1><p>Quantity is shown on every request and history record.</p></div>{% if session.get('role')!='admin' %}<a class="btn btn-primary" href="{{ url_for('request_borrow') }}">+ New Borrow Request</a>{% endif %}</div>
+<section class="panel"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Date</th><th>User</th><th>Item</th><th>Category</th><th>Qty</th><th>Approval</th><th>Borrow Status</th><th>Return Status</th><th>Queue</th></tr></thead><tbody>
+{% for r in requests %}<tr><td>{{ r.request_id }}</td><td>{{ r.created_at }}</td><td>{{ r.username }}</td><td>{{ r.hardware_item }}</td><td>{{ r.category }}</td><td><strong>{{ r.quantity }}</strong></td><td>{{ r.approval_status }}{% if r.approval_code %}<br><small>{{ r.approval_code }}</small>{% endif %}</td><td>{{ r.borrow_status }}</td><td>{{ r.return_status or '—' }}</td><td>Q-{{ r.queue_number }}</td></tr>{% else %}<tr><td colspan="10" class="empty">No request records found.</td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}

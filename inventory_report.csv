@@ -1,0 +1,6 @@
+Item ID,Item Name,Category,Max Qty Available,Available Qty Item,Unit Price ($),Status
+1,arduino,Microcontroller,20,20,0.0,In Stock
+2,led,Output Devices,20,10,0.0,In Stock
+3,switch,Input Devices,20,20,0.0,In Stock
+4,resistor,Passive Components,50,36,0.0,In Stock
+5,breadboard,Tools,20,18,0.0,In Stock

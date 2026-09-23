@@ -1,0 +1,45 @@
+!--base.html--!
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Campus Hardware Inventory{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% if session.get('username') %}
+<header class="topbar">
+  <div class="brand">Campus Hardware Inventory</div>
+  <div class="top-actions">
+    <span class="logged">Logged in as: <strong>{{ session.get('username') }}</strong> [{{ session.get('role','user')|upper }}]</span>
+    <a class="btn btn-danger btn-sm" href="{{ url_for('logout') }}">Logout</a>
+  </div>
+</header>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="side-title">Navigation</div>
+    <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+    {% if session.get('role') != 'admin' %}<a class="nav-link" href="{{ url_for('request_borrow') }}">Request Form</a>{% endif %}
+    <a class="nav-link" href="{{ url_for('requests') }}">{% if session.get('role') == 'admin' %}Borrow Requests{% else %}My Borrowed / Requests{% endif %}</a>
+    {% if session.get('role') == 'admin' %}<a class="nav-link" href="{{ url_for('approvals') }}">Admin Approvals</a>{% endif %}
+    <a class="nav-link" href="{{ url_for('history') }}">History / Audit</a>
+    <a class="nav-link" href="{{ url_for('profile') }}">My Profile & Security</a>
+  </aside>
+  <main class="content">
+{% else %}
+<main class="auth-main">
+{% endif %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}<div class="flash-stack">{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+{% endwith %}
+{% block content %}{% endblock %}
+</main>
+{% if session.get('username') %}</div>{% endif %}
+<script>
+function togglePassword(id, box){ const el=document.getElementById(id); if(el) el.type=box.checked?'text':'password'; }
+function confirmAction(message){ return window.confirm(message); }
+</script>
+</body>
+</html>
