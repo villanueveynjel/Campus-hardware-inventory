@@ -1,0 +1,5 @@
+.env
+hardware_inventory.db
+app_logging/
+__pycache__/
+*.pyc

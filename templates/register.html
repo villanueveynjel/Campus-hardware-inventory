@@ -1,0 +1,10 @@
+<!--register.html-->
+
+{% extends 'base.html' %}{% block title %}Register{% endblock %}
+{% block content %}<section class="auth-card compact"><h1>Create Account</h1><p class="subtitle">Registration is on a separate page.</p>
+<form method="post" class="form-grid">
+<label>Username<input name="username" required></label><label>Email<input type="email" name="email" required></label>
+<label>Password<input id="reg_password" type="password" name="password" required></label><label>Confirm Password<input id="reg_confirm" type="password" name="confirm_password" required></label>
+<label class="check"><input type="checkbox" onchange="togglePassword('reg_password',this);togglePassword('reg_confirm',this)"> Show Passwords</label>
+<button class="btn btn-primary full">Register</button></form><a class="back-link" href="{{ url_for('login') }}">← Back to Login</a>
+<div class="requirements">Password: at least 8 characters, one uppercase letter, one number, and one special character.</div></section>{% endblock %}

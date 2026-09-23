@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction & Request History{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>Transaction &amp; Request History</h1>
+        <p class="page-subtitle">
+            Quantities are preserved for applicable borrow and return records.
+        </p>
+    </div>
+</div>
+
+<div class="card history-card">
+
+    <div class="card-header">
+        <h2>Request / Borrow / Return History</h2>
+    </div>
+
+    {% if requests %}
+
+    <div class="table-wrapper">
+        <table class="data-table history-table">
+
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    {% if session.get("role") == "admin" %}
+                    <th>User</th>
+                    {% endif %}
+                    <th>Item</th>
+                    <th>Category</th>
+                    <th>Quantity</th>
+                    <th>Approval</th>
+                    <th>Borrow</th>
+                    <th>Return</th>
+                    <th>Queue</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for req in requests %}
+
+                <tr>
+
+                    <td>
+                        {% if req["date"] is defined %}
+                            {{ req["date"] }}
+                        {% elif req["created_at"] is defined %}
+                            {{ req["created_at"] }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    {% if session.get("role") == "admin" %}
+                    <td>
+                        {% if req["username"] is defined %}
+                            {{ req["username"] }}
+                        {% elif req["user"] is defined %}
+                            {{ req["user"] }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    {% endif %}
+
+                    <td>
+                        {% if req["item"] is defined %}
+                            {{ req["item"] }}
+                        {% elif req["hardware_item"] is defined %}
+                            {{ req["hardware_item"] }}
+                        {% elif req["item_name"] is defined %}
+                            {{ req["item_name"] }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if req["category"] is defined %}
+                            {{ req["category"] }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td class="quantity-cell">
+                        {% if req["qty"] is defined %}
+                            <strong>{{ req["qty"] }}</strong>
+                        {% elif req["quantity"] is defined %}
+                            <strong>{{ req["quantity"] }}</strong>
+                        {% else %}
+                            <strong>1</strong>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if req["approval_status"] is defined %}
+                            {% set approval = req["approval_status"] %}
+                        {% elif req["status"] is defined %}
+                            {% set approval = req["status"] %}
+                        {% else %}
+                            {% set approval = "Pending" %}
+                        {% endif %}
+
+                        {% if approval == "Approved" %}
+                            <span class="status-badge approved">
+                                Approved
+                            </span>
+                        {% elif approval == "Rejected" %}
+                            <span class="status-badge rejected">
+                                Rejected
+                            </span>
+                        {% else %}
+                            <span class="status-badge pending">
+                                {{ approval }}
+                            </span>
+                        {% endif %}
+
+                        {% if req["approval_code"] is defined
+                              and req["approval_code"]
+                              and req["approval_code"] != "N/A" %}
+                            <small class="approval-code">
+                                {{ req["approval_code"] }}
+                            </small>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if req["borrow_status"] is defined %}
+                            {% set borrow_status = req["borrow_status"] %}
+                        {% elif req["borrow"] is defined %}
+                            {% set borrow_status = req["borrow"] %}
+                        {% else %}
+                            {% set borrow_status = "—" %}
+                        {% endif %}
+
+                        {% if borrow_status == "Borrowed" %}
+                            <span class="status-badge borrowed">
+                                Borrowed
+                            </span>
+                        {% elif borrow_status == "Returned" %}
+                            <span class="status-badge returned">
+                                Returned
+                            </span>
+                        {% elif borrow_status == "Pending Return" %}
+                            <span class="status-badge pending">
+                                Pending Return
+                            </span>
+                        {% elif borrow_status == "Rejected" %}
+                            <span class="status-badge rejected">
+                                Rejected
+                            </span>
+                        {% else %}
+                            {{ borrow_status }}
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if req["return_status"] is defined %}
+                            {% set return_status = req["return_status"] %}
+                        {% elif req["returned"] is defined %}
+                            {% set return_status = req["returned"] %}
+                        {% else %}
+                            {% set return_status = "—" %}
+                        {% endif %}
+
+                        {% if return_status == "Returned" %}
+                            <span class="status-badge returned">
+                                Returned
+                            </span>
+                        {% elif return_status == "Pending" %}
+                            <span class="status-badge pending">
+                                Pending
+                            </span>
+                        {% elif return_status == "Rejected" %}
+                            <span class="status-badge rejected">
+                                Rejected
+                            </span>
+                        {% else %}
+                            {{ return_status }}
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if req["queue_number"] is defined
+                              and req["queue_number"] %}
+                            Q-{{ req["queue_number"] }}
+                        {% elif req["queue"] is defined
+                              and req["queue"] %}
+                            {{ req["queue"] }}
+                        else
+                            —
+                        {% endif %}
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+    </div>
+
+    {% else %}
+
+    <div class="empty-state">
+        <div class="empty-icon">📋</div>
+
+        <h3>No transaction history yet</h3>
+
+        <p>
+            Your borrow and return transactions will appear here
+            once you submit a request.
+        </p>
+
+        <a href="{{ url_for('request_form') }}" class="btn btn-primary">
+            Go to Request Form
+        </a>
+    </div>
+
+    {% endif %}
+
+</div>
+
+<style>
+    .history-card {
+        margin-top: 20px;
+        overflow: hidden;
+    }
+
+    .history-card .card-header {
+        padding: 18px 20px;
+        background: #e9ddf0;
+        border-bottom: 1px solid #c8b1d2;
+    }
+
+    .history-card .card-header h2 {
+        margin: 0;
+        color: #432052;
+        font-size: 20px;
+        font-weight: 700;
+    }
+
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+    }
+
+    .history-table th {
+        background: #432052;
+        color: #ffffff;
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .history-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e8ddec;
+        color: #2a1830;
+        background: #ffffff;
+        vertical-align: middle;
+    }
+
+    .history-table tbody tr:hover td {
+        background: #f8f2fa;
+    }
+
+    .quantity-cell {
+        text-align: center;
+        font-size: 16px;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-badge.approved {
+        background: #d1fae5;
+        color: #166534;
+    }
+
+    .status-badge.rejected {
+        background: #f9d5d5;
+        color: #991b1b;
+    }
+
+    .status-badge.pending {
+        background: #f4edf7;
+        color: #6a3d78;
+    }
+
+    .status-badge.borrowed {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+
+    .status-badge.returned {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .approval-code {
+        display: block;
+        margin-top: 4px;
+        color: #6e5a75;
+        font-size: 11px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 55px 25px;
+        color: #6e5a75;
+    }
+
+    .empty-icon {
+        font-size: 42px;
+        margin-bottom: 10px;
+    }
+
+    .empty-state h3 {
+        margin: 5px 0 8px;
+        color: #432052;
+    }
+
+    .empty-state p {
+        margin-bottom: 20px;
+    }
+</style>
+
+{% endblock %}
