@@ -1,6 +1,8 @@
 # app.py
-import requests as http_requests
+# app.py
 from __future__ import annotations
+
+import requests as http_requests
 
 import csv
 from email.mime.text import MIMEText
