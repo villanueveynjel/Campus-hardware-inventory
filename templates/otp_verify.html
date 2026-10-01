@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Verify OTP - Laboratory System</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #F4EDF7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #2A1830;
+        }
+
+        .otp-container {
+            width: 100%;
+            max-width: 430px;
+            padding: 20px;
+        }
+
+        .otp-card {
+            background: #FFFFFF;
+            border-radius: 18px;
+            padding: 40px 35px;
+            box-shadow: 0 10px 30px rgba(43, 18, 56, 0.12);
+            text-align: center;
+            border: 1px solid #E9DDF0;
+        }
+
+        .icon {
+            width: 65px;
+            height: 65px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            background: #E9DDF0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            color: #2B1238;
+            font-size: 26px;
+        }
+
+        .subtitle {
+            color: #6E5A75;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+
+        .otp-input {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #C8B1D2;
+            border-radius: 10px;
+            font-size: 24px;
+            text-align: center;
+            letter-spacing: 8px;
+            outline: none;
+            color: #2A1830;
+        }
+
+        .otp-input:focus {
+            border-color: #6A3D78;
+            box-shadow: 0 0 0 3px rgba(106, 61, 120, 0.12);
+        }
+
+        .verify-btn {
+            width: 100%;
+            margin-top: 20px;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: #6A3D78;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .verify-btn:hover {
+            background: #432052;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #6A3D78;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .flash-message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: left;
+            background: #F4EDF7;
+            color: #432052;
+            border: 1px solid #C8B1D2;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="otp-container">
+
+    <div class="otp-card">
+
+        <div class="icon">
+            🔐
+        </div>
+
+        <h1>Verify Your Email</h1>
+
+        <p class="subtitle">
+            We sent a 6-digit verification code to your email address.
+            Please enter the code below to continue.
+        </p>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- OTP Form -->
+        <form method="POST" action="{{ action_url }}">
+
+            <input
+                type="text"
+                name="otp_code"
+                class="otp-input"
+                placeholder="000000"
+                maxlength="6"
+                minlength="6"
+                pattern="[0-9]{6}"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                required
+            >
+
+            <button type="submit" class="verify-btn">
+                Verify Code
+            </button>
+
+        </form>
+
+        <a href="{{ url_for('login') }}" class="back-link">
+            ← Back to Login
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+</html>
