@@ -681,12 +681,17 @@ def reset():
 @app.route("/verify-otp/<action>", methods=["GET", "POST"])
 def verify_otp(action):
 
-    if action not in ("register", "reset"):
+    if action not in ("register", "reset", "change"):
         flash("Invalid verification request.", "danger")
         return redirect(url_for("login"))
 
     # Determine which pending session to use
-    session_key = "pending_user" if action == "register" else "pending_reset"
+    if action == "register":
+        session_key = "pending_user"
+    elif action == "reset":
+        session_key = "pending_reset"
+    else:
+        session_key = "pending_change"
 
     if session_key not in session:
         flash("Session expired. Please try again.", "warning")
@@ -796,6 +801,106 @@ def verify_otp(action):
 
                     flash(
                         "Unable to submit password reset request.",
+                        "danger"
+                    )
+
+                finally:
+                    conn.close()
+
+                        # -----------------------------------------
+            # CHANGE PASSWORD
+            # -----------------------------------------
+            elif action == "change":
+
+                conn = db()
+
+                try:
+                    conn.execute(
+                        """
+                        UPDATE users
+                        SET password_hash=?, failed_attempts=0
+                        WHERE username=?
+                        """,
+                        (
+                            hash_password(data["new_password"]),
+                            data["username"]
+                        )
+                    )
+
+                    conn.commit()
+
+                    log_info(
+                        f"Password change success: {data['username']}"
+                    )
+
+                    session.pop(session_key, None)
+
+                    flash(
+                        "Password successfully changed!",
+                        "success"
+                    )
+
+                    return redirect(url_for("profile"))
+
+                except sqlite3.Error as exc:
+                    conn.rollback()
+
+                    log_error(
+                        f"Password change error: {exc}"
+                    )
+
+                    flash(
+                        "Unable to change password. Please try again.",
+                        "danger"
+                    )
+
+                finally:
+                    conn.close()
+
+            # -----------------------------------------
+            # CHANGE PASSWORD
+            # -----------------------------------------
+            elif action == "change":
+
+                conn = db()
+
+                try:
+                    conn.execute(
+                        """
+                        UPDATE users
+                        SET password_hash=?, failed_attempts=0
+                        WHERE username=?
+                        """,
+                        (
+                            hash_password(data["new_password"]),
+                            data["username"]
+                        )
+                    )
+
+                    conn.commit()
+
+                    log_info(
+                        f"Password change success: {data['username']}"
+                    )
+
+                    session.pop(session_key, None)
+
+                    flash(
+                        "Password successfully changed!",
+                        "success"
+                    )
+
+                    return redirect(url_for("profile"))
+
+                except sqlite3.Error as exc:
+                    conn.rollback()
+
+                    log_error(
+                        f"Password change error: {exc}"
+                    )
+
+                    flash(
+                        "Unable to change password. Please try again.",
                         "danger"
                     )
 
@@ -1136,26 +1241,86 @@ def add_inventory():
 @app.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
+
     if request.method == "POST":
+
         current = request.form.get("current_password", "")
         new = request.form.get("new_password", "")
         confirm = request.form.get("confirm_password", "")
+
         if not current or not new or not confirm:
             flash("All fields are required.", "error")
-        elif new != confirm:
-            flash("New passwords do not match.", "error")
-        elif not password_valid(new):
-            flash("New password must be at least 8 characters long, contain an uppercase letter, a number, and a special character.", "error")
-        else:
-            conn = db(); user = conn.execute("SELECT password_hash FROM users WHERE username=?", (session["username"],)).fetchone()
-            if not user or user["password_hash"] != hash_password(current):
-                flash("Incorrect current password.", "error")
-            else:
-                conn.execute("UPDATE users SET password_hash=? WHERE username=?", (hash_password(new), session["username"]))
-                conn.commit(); flash("Password successfully updated!", "success"); audit(session["username"], "Password changed")
-            conn.close()
-    return render_template("profile.html")
+            return redirect(url_for("profile"))
 
+        if new != confirm:
+            flash("New passwords do not match.", "error")
+            return redirect(url_for("profile"))
+
+        if not password_valid(new):
+            flash(
+                "New password must be at least 8 characters long, "
+                "contain an uppercase letter, a number, and a special character.",
+                "error"
+            )
+            return redirect(url_for("profile"))
+
+        conn = db()
+
+        user = conn.execute(
+            """
+            SELECT password_hash, email
+            FROM users
+            WHERE username=?
+            """,
+            (session["username"],)
+        ).fetchone()
+
+        conn.close()
+
+        if not user:
+            flash("User account not found.", "error")
+            return redirect(url_for("profile"))
+
+        if user["password_hash"] != hash_password(current):
+            flash("Incorrect current password.", "error")
+            return redirect(url_for("profile"))
+
+        # Generate OTP
+        otp = str(random.randint(100000, 999999))
+
+        # Store pending password change
+        session["pending_change"] = {
+            "username": session["username"],
+            "email": user["email"],
+            "new_password": new,
+            "otp": otp
+        }
+
+        # Send OTP
+        if send_otp_email(
+            user["email"],
+            otp,
+            intent="Password Change"
+        ):
+            flash(
+                "A verification code has been sent to your registered email.",
+                "info"
+            )
+
+            return redirect(
+                url_for("verify_otp", action="change")
+            )
+
+        session.pop("pending_change", None)
+
+        flash(
+            "Failed to send OTP email. Please try again.",
+            "danger"
+        )
+
+        return redirect(url_for("profile"))
+
+    return render_template("profile.html")
 
 @app.route("/history")
 @login_required
