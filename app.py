@@ -13,6 +13,7 @@ import sqlite3
 
 import smtplib
 import random
+import requests
 
 from datetime import datetime
 from functools import wraps
@@ -46,45 +47,68 @@ SMTP_FROM = os.environ.get("BREVO_FROM_EMAIL", SMTP_LOGIN)
 
 def send_otp_email(receiver_email, otp, intent):
     try:
-        print("STEP 1: Creating email...")
+        print("STEP 1: Preparing Brevo API request...")
 
-        msg = EmailMessage()
-        msg["Subject"] = f"Laboratory System - {intent} Verification Code"
-        msg["From"] = SMTP_FROM
-        msg["To"] = receiver_email
+        api_key = os.environ.get("BREVO_API_KEY", "")
+        sender_email = os.environ.get("BREVO_FROM_EMAIL", "")
 
-        msg.set_content(
-            f"""
-Your verification code is:
+        if not api_key:
+            print("EMAIL ERROR: BREVO_API_KEY is missing")
+            return False
 
-{otp}
+        if not sender_email:
+            print("EMAIL ERROR: BREVO_FROM_EMAIL is missing")
+            return False
 
-This code is required to complete your {intent.lower()}.
+        url = "https://api.brevo.com/v3/smtp/email"
 
-If you did not request this, please ignore this email.
-"""
+        headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json"
+        }
+
+        data = {
+            "sender": {
+                "email": sender_email,
+                "name": "Campus Hardware Inventory"
+            },
+            "to": [
+                {
+                    "email": receiver_email
+                }
+            ],
+            "subject": f"Laboratory System - {intent} Verification Code",
+            "textContent": (
+                f"Your verification code is: {otp}\n\n"
+                f"This code is required to complete your {intent.lower()}.\n\n"
+                "If you did not request this, please ignore this email."
+            )
+        }
+
+        print("STEP 2: Sending request to Brevo API...")
+
+        response = requests.post(
+            url,
+            headers=headers,
+            json=data,
+            timeout=20
         )
 
-        print("STEP 2: Connecting to Brevo...")
+        print(f"STEP 3: Brevo response status: {response.status_code}")
+        print(f"STEP 4: Brevo response: {response.text}")
 
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20) as server:
-            print("STEP 3: Connected to Brevo")
+        if response.status_code == 201:
+            print("STEP 5: Email sent successfully through Brevo API")
+            return True
 
-            server.starttls()
-            print("STEP 4: STARTTLS successful")
-
-            server.login(SMTP_LOGIN, SMTP_PASSWORD)
-            print("STEP 5: SMTP login successful")
-
-            server.send_message(msg)
-            print("STEP 6: Email sent successfully")
-
-        return True
+        print("EMAIL ERROR: Brevo API rejected the request")
+        return False
 
     except Exception as e:
         print(f"EMAIL ERROR: {type(e).__name__}: {e}")
         return False
-        
+            
 PURPLE = {
     "deep": "#2B1238",
     "dark": "#432052",
