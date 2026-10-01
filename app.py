@@ -37,7 +37,7 @@ app.config["DATABASE"] = str(DB_PATH)
 
 # --- BREVO SMTP CONFIGURATION ---
 SMTP_SERVER = "smtp-relay.brevo.com"
-SMTP_PORT = 587
+SMTP_PORT = 2525
 
 SMTP_LOGIN = os.environ.get("BREVO_SMTP_LOGIN", "")
 SMTP_PASSWORD = os.environ.get("BREVO_SMTP_PASSWORD", "")
@@ -48,53 +48,43 @@ def send_otp_email(receiver_email, otp, intent):
     try:
         print("STEP 1: Creating email...")
 
-        msg = MIMEText(
-            f"""Your verification code is: {otp}
-
-This code is for: {intent}
-
-Please enter this code in the Laboratory System to continue.
-
-If you did not request this, you may ignore this email.
-""",
-            "plain"
-        )
-
+        msg = EmailMessage()
         msg["Subject"] = f"Laboratory System - {intent} Verification Code"
         msg["From"] = SMTP_FROM
         msg["To"] = receiver_email
 
+        msg.set_content(
+            f"""
+Your verification code is:
+
+{otp}
+
+This code is required to complete your {intent.lower()}.
+
+If you did not request this, please ignore this email.
+"""
+        )
+
         print("STEP 2: Connecting to Brevo...")
 
-        with smtplib.SMTP(
-            SMTP_SERVER,
-            SMTP_PORT,
-            timeout=10
-        ) as server:
-
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20) as server:
             print("STEP 3: Connected to Brevo")
-            
-            server.ehlo()
-            print("STEP 4: EHLO successful")
 
             server.starttls()
-            print("STEP 5: STARTTLS successful")
-
-            server.ehlo()
-            print("STEP 6: Second EHLO successful")
+            print("STEP 4: STARTTLS successful")
 
             server.login(SMTP_LOGIN, SMTP_PASSWORD)
-            print("STEP 7: SMTP login successful")
+            print("STEP 5: SMTP login successful")
 
             server.send_message(msg)
-            print("STEP 8: Email sent successfully")
+            print("STEP 6: Email sent successfully")
 
         return True
 
     except Exception as e:
         print(f"EMAIL ERROR: {type(e).__name__}: {e}")
         return False
-    
+        
 PURPLE = {
     "deep": "#2B1238",
     "dark": "#432052",
