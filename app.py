@@ -1,4 +1,5 @@
 # app.py
+import requests as http_requests
 from __future__ import annotations
 
 import csv
@@ -13,7 +14,6 @@ import sqlite3
 
 import smtplib
 import random
-import requests
 
 from datetime import datetime
 from functools import wraps
@@ -88,7 +88,7 @@ def send_otp_email(receiver_email, otp, intent):
 
         print("STEP 2: Sending request to Brevo API...")
 
-        response = requests.post(
+        response = http_requests.post(
             url,
             headers=headers,
             json=data,
